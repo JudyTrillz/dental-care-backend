@@ -5,3 +5,40 @@ stack = "BEST_EFFORT_FALLBACK"
 
 [nix]
 channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm start"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+JWT_SECRET = "b1b9ba36c5c632df4225c6f8e0441ec1dd57eb1c016b2822c70ec3ec2078a34afd925c3b3f23fde6da2c38c08a4195636c25d3991e541650996451194e51df48"
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["npm", "start"]
