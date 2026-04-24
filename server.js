@@ -25,7 +25,8 @@ app.use(
       "https://dentalcare-app.netlify.app", // live frontend
       "http://127.0.0.1:5500", // your local frontend if you open index.html via Live Server
       "http://localhost:5500", // alternate Live Server localhost
-      "http://localhost:5000", // backend port itself if needed
+      "http://localhost:5000",
+      "https://dental-care--ojudy007.replit.app",
     ],
 
     methods: ["GET", "POST", "PATCH", "DELETE"],
