@@ -1,5 +1,7 @@
 const db = require("../config/firebase");
 
+const { sendEmail } = require("../utils/email.js");
+
 const createBooking = async (req, res) => {
   try {
     const { serviceId, dentistId, date, startTime, fullName, phone, email } = req.body;
@@ -95,6 +97,39 @@ const createBooking = async (req, res) => {
       createdAt: new Date(),
     });
 
+    try {
+      const result = await sendEmail({
+        to: email,
+        subject: "Booking Received",
+        html: `
+      <h2>Booking Received✅</h2>
+      <p>Dear ${fullName},</p>
+      <p>Your booking has been received successfully.</p>
+      <p>Please wait while the clinic confirms your appointment. You will receive a confirmation email once your booking is confirmed.</p>
+    `,
+      });
+    } catch (err) {
+      console.error("[BOOKING EMAIL FAILED]", err);
+    }
+
+    // ADMIN NOTIFICATION - NEW BOOKING
+    try {
+      await sendEmail({
+        to: "ojudy009@gmail.com", //!This is for admin email only.
+        subject: "New Appointment Booking",
+        html: `
+      <h2>New Booking Received</h2>
+      <p><strong>Patient's Name:</strong> ${fullName}</p>
+      <p><strong>Patient's Email:</strong> ${email}</p>
+      <p><strong>Patient's Phone:</strong> ${phone}</p>
+      <p><strong>Booked Date:</strong> ${date}</p>
+      <p><strong>Booked Time:</strong> ${startTime} - ${endTime}</p>
+    `,
+      });
+    } catch (err) {
+      console.error("[ADMIN BOOKING EMAIL FAILED]", err);
+    }
+
     res.status(201).json({
       success: true,
       data: { id: ref.id },
@@ -145,16 +180,15 @@ const updateBookingStatus = async (req, res) => {
     const { status } = req.body;
 
     if (!id || !status) {
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
         message: "Booking id and status required",
       });
     }
 
-    // Only allow valid statuses
     const allowed = ["pending", "confirmed", "cancelled"];
     if (!allowed.includes(status)) {
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
         message: "Invalid status fields",
       });
@@ -164,13 +198,59 @@ const updateBookingStatus = async (req, res) => {
     const doc = await bookingRef.get();
 
     if (!doc.exists) {
-      res.status(404).json({
+      return res.status(404).json({
         success: false,
         message: "Booking not found",
       });
     }
 
     await bookingRef.update({ status });
+
+    // fetch updated booking data for email
+    const updatedBooking = doc.data();
+
+    if (status === "confirmed") {
+      try {
+        await sendEmail({
+          to: updatedBooking.email,
+          subject: "Appointment Confirmed",
+          html: `
+        <h2>Appointment Confirmed</h2>
+        <p>Dear ${updatedBooking.fullName},</p>
+        <p>Your appointment scheduled for ${updatedBooking.date} has been confirmed. We look forward to seeing you soon.</p>
+        <br />
+
+        <p>If you wish to cancel your appointment, please respond to this email 72 hours before the scheduled date.</p>
+        <br />
+        <p>Best Regards,</p>
+        <p><i>DentalCare Clinic</i></p>
+      `,
+        });
+      } catch (err) {
+        console.error("[CONFIRM EMAIL FAILED]", err);
+      }
+    }
+
+    if (status === "cancelled") {
+      try {
+        await sendEmail({
+          to: updatedBooking.email,
+          subject: "Appointment Cancelled",
+          html: `
+        <h2>Appointment Cancelled</h2>
+        <p>Dear ${updatedBooking.fullName},</p>
+        <p>Your appointment scheduled for ${updatedBooking.date} has been cancelled. We hope to hear from you soon.</p>
+        
+         <br />
+
+        <p>Best Regards,</p>
+        <p><i>DentalCare Clinic</i></p>
+      `,
+        });
+      } catch (err) {
+        console.error("[CANCEL EMAIL FAILED]", err);
+      }
+    }
 
     res.status(200).json({
       success: true,
